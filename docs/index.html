@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Stock Data from GitHub</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 8px; text-align: right; }
+        th { background-color: #f2f2f2; }
+        td:first-child, th:first-child { text-align: left; }
+    </style>
+</head>
+<body>
+
+<h2>Stock Data (loaded from GitHub)</h2>
+
+<table id="stock-table">
+    <thead>
+        <tr>
+            <th>Date (UTC)</th>
+            <th>Open</th>
+            <th>High</th>
+            <th>Low</th>
+            <th>Close</th>
+            <th>Volume</th>
+            <th>Dividends</th>
+            <th>Stock Splits</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- rows will be inserted after the fetch -->
+    </tbody>
+</table>
+
+<script>
+// ---- 1️⃣  URL of the raw JSON file on GitHub ----
+// Replace the URL below with the exact path to your file.
+// Example: https://raw.githubusercontent.com/username/repo/branch/path/to/data.json
+const GITHUB_RAW_URL = "https://raw.githubusercontent.com/yblebon/datasources/refs/heads/main/tickers/gold_2025-11-24.json";
+
+// ---- 2️⃣  Helper to turn a millisecond epoch into a readable UTC string ----
+function msToUTCString(ms) {
+    const d = new Date(ms);
+    // ISO format → "2025-10-23 00:00:00 UTC"
+    return d.toISOString().replace('T', ' ').replace('Z', ' UTC');
+}
+
+// ---- 3️⃣  Build a table row from one record ----
+function addRow(timestampMs, record) {
+    const tbody = document.querySelector('#stock-table tbody');
+    const tr = document.createElement('tr');
+
+    // Date column
+    const dateTd = document.createElement('td');
+    dateTd.textContent = msToUTCString(Number(timestampMs));
+    dateTd.style.textAlign = 'left';
+    tr.appendChild(dateTd);
+
+    // Numeric columns in the required order
+    const fields = ['Open','High','Low','Close','Volume','Dividends','Stock Splits'];
+    fields.forEach(f => {
+        const td = document.createElement('td');
+        td.textContent = record[f];
+        tr.appendChild(td);
+    });
+
+    tbody.appendChild(tr);
+}
+
+// ---- 4️⃣  Fetch the JSON from GitHub and render the table ----
+fetch(GITHUB_RAW_URL)
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Network error: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // data is an object where keys are timestamps in ms
+        for (const [ts, rec] of Object.entries(data)) {
+            addRow(ts, rec);
+        }
+    })
+    .catch(err => {
+        console.error('Failed to load JSON:', err);
+        const tbody = document.querySelector('#stock-table tbody');
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = 8;
+        td.style.textAlign = 'center';
+        td.textContent = 'Error loading data';
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+    });
+</script>
+
+</body>
+</html>
