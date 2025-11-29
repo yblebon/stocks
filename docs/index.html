@@ -3,368 +3,824 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>"The Financier"</title>
-    <!-- Load Tailwind CSS for modern styling -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Load Chart.js for data visualization -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <title>GitHub Ticker Data Viewer (Charts & Bookmarks)</title>
+
+    <meta name="referrer" content="strict-origin-when-cross-origin">
+    
+    <script 
+        src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" 
+        integrity="sha384-9nhczxUqK87bcKHh20fSQcTGD4qq5GhayNYSYWqwBkINBhOfQLg/P5HG5lF1urn4" 
+        crossorigin="anonymous">
+    </script>
+    
     <style>
-        /* Custom styles for better readability and structure */
         body {
-            font-family: 'Inter', sans-serif;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
         }
-        .container {
-            max-width: 1100px;
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #ccc;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
         }
-        #dataTable th, #dataTable td {
+        h1 {
+            color: #333;
+            margin: 0;
+        }
+        #timeDisplay {
+            text-align: right;
+            font-size: 0.9em;
+            color: #555;
+            line-height: 1.4;
+            /* Added padding for better separation */
+            padding-left: 20px; 
+            /* Grid layout to display 3 times per row */
+            display: grid;
+            grid-template-columns: repeat(3, auto); 
+            gap: 5px 15px; 
+        }
+        #timeDisplay > div {
+            white-space: nowrap; /* Prevent line breaks within a single time zone label */
+        }
+        #mainContainer {
+            display: flex;
+            gap: 20px;
+        }
+        #tickerSidebar {
+            width: 300px;
+        }
+        #searchContainer, #sortContainer, #selectionContainer {
+            margin-bottom: 15px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+            border-radius: 5px;
+        }
+        #tickerSearch, #sortOrder, #productSelect, #dateSelect {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+            margin-top: 5px;
+            margin-bottom: 10px;
+        }
+        #tickersList {
+            list-style-type: none;
+            padding: 0;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #fff;
+        }
+        #tickersList li {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        #tickersList li:last-child {
+            border-bottom: none;
+        }
+        #tickersList li:hover {
+            background-color: #e9e9e9;
+        }
+        .highlighted {
+            background-color: #d1e7ff !important;
+        }
+        .bookmark-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2em;
+            color: gray;
+        }
+        .bookmark-btn.bookmarked {
+            color: gold;
+        }
+
+        #chartView {
+            flex-grow: 1;
+            padding: 15px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+            border-radius: 5px;
+        }
+        .chart-container {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            position: relative;
+        }
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .remove-bookmark-btn {
+            background-color: #ff4d4d;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+        .show-data-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+        .data-table-container {
+            max-height: 300px;
+            overflow-y: auto;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+            margin-top: 10px;
+            display: none; /* Hidden by default */
+        }
+        .data-table-container table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+        }
+        .data-table-container th, .data-table-container td {
+            border: 1px solid #eee;
+            padding: 8px;
             text-align: right;
         }
-        #dataTable th:first-child, #dataTable td:first-child {
+        .data-table-container th:first-child, .data-table-container td:first-child {
             text-align: left;
+            width: 200px;
         }
-        /* Custom radio button appearance */
-        .radio-label input[type="radio"]:checked + span {
-            background-color: #3b82f6;
-            color: white;
-            border-color: #3b82f6;
+        .data-select-dropdown {
+            padding: 4px;
+            font-size: 0.9em;
         }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen p-4">
+<body>
 
-    <div class="container mx-auto">
-        <header class="text-center py-6 bg-white shadow-md rounded-lg mb-8">
-            <h1 class="text-3xl font-bold text-gray-800">Without actions the best intentions in the world are nothing more than: intentions</h1>
-            <p class="text-gray-500 mt-2">Click a file to load the JSON content, display the raw data, and plot the historical trend.</p>
-        </header>
+    <div class="header-row">
+        <h1>📈 Financial Product Data Viewer</h1>
+        <div id="timeDisplay">
+            </div>
+    </div>
+    
+    <div id="mainContainer">
         
-        <!-- File Listing Section -->
-        <section class="mb-8 bg-white p-6 shadow-lg rounded-lg">
-            <h2 class="text-2xl font-semibold border-b pb-2 mb-4 text-gray-700">Available Data Files</h2>
-            <div id="loading" class="text-blue-500">Loading file list...</div>
-            <ul id="fileList" class="list-none p-0 space-y-2"></ul>
-            <div id="error-message" class="text-red-500 mt-4 hidden"></div>
-        </section>
+        <div id="tickerSidebar">
+            
+            <div id="selectionContainer">
+                <h2>Browse Data</h2>
+                <label for="productSelect">Select Product:</label>
+                <select id="productSelect">
+                    <option value="">-- Loading Products --</option>
+                </select>
 
-        <!-- Visualization Section -->
-        <section id="table-container" class="bg-white p-6 shadow-lg rounded-lg">
-            <h2 class="text-2xl font-semibold border-b pb-2 mb-4 text-gray-700">Data Visualization</h2>
-            <p id="currentFileDisplay" class="text-gray-500 mb-6">Click a file above to load the data.</p>
-
-            <!-- Chart Container -->
-            <div id="chart-wrapper" class="hidden">
-                <div id="dataSelector" class="mb-4 flex flex-wrap gap-3 justify-center">
-                    <!-- Radio buttons for selecting data series will be inserted here -->
-                </div>
-                <div class="h-96 w-full p-4 border rounded-lg bg-gray-50">
-                    <canvas id="timeSeriesChart"></canvas>
-                </div>
+                <label for="dateSelect">Select Date:</label>
+                <select id="dateSelect" disabled>
+                    <option value="">-- Select Product First --</option>
+                </select>
             </div>
+            
+            <h2>Available Files for Selection</h2>
+            <ul id="tickersList">
+                <li>Loading tickers...</li>
+            </ul>
+        </div>
 
-            <!-- Table Output -->
-            <h3 class="text-xl font-medium mt-8 mb-4 text-gray-700">Raw Data Table</h3>
-            <div id="dataOutput" class="overflow-x-auto">
-                <!-- Table will be inserted here -->
-            </div>
-        </section>
+        <div id="chartView">
+            <h2>Product Charts</h2>
+            <div id="bookmarkedCharts">
+                </div>
+            <p id="initialMessage">Select a ticker from the list to view its chart, or wait for bookmarked items to load.</p>
+        </div>
+
     </div>
 
-    <script type="module" src="./config.js"></script> 
+    <script>
+        // --- CONFIGURATION SETUP ---
+        let config = {}; 
+        let productDateMap = new Map(); 
 
-    <script type="module">
-        import GITHUB_CONFIG from './config.js';
+        const tickersList = document.getElementById('tickersList');
+        const bookmarkedChartsDiv = document.getElementById('bookmarkedCharts');
+        const initialMessage = document.getElementById('initialMessage');
+        const productSelect = document.getElementById('productSelect');
+        const dateSelect = document.getElementById('dateSelect');
+        const timeDisplay = document.getElementById('timeDisplay'); 
 
-        // 3. Use the imported config values
-        const owner = GITHUB_CONFIG.owner; 
-        const repo = GITHUB_CONFIG.repo;
-        const path = GITHUB_CONFIG.path;
-
-        const baseApiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+        let allTickers = []; 
+        let activeCharts = {}; 
+        const BOOKMARK_KEY = 'bookmarkedTickers';
+        let currentTickerDataCache = {}; 
         
-        const fileListElement = document.getElementById('fileList');
-        const loadingElement = document.getElementById('loading');
-        const errorElement = document.getElementById('error-message');
-        const dataOutputElement = document.getElementById('dataOutput');
-        const currentFileDisplay = document.getElementById('currentFileDisplay');
-        const chartWrapper = document.getElementById('chart-wrapper');
-        const dataSelector = document.getElementById('dataSelector');
+        // --- CHART CONSTANTS ---
+        const AVAILABLE_DATA_COLUMNS = ['Close', 'Open', 'High', 'Low', 'Volume'];
+        const DEFAULT_COLUMN = 'Close'; 
+        const COLOR_MAP = {
+            'Close': 'rgb(75, 192, 192)',
+            'Open': 'rgb(255, 159, 64)',
+            'High': 'rgb(54, 162, 235)',
+            'Low': 'rgb(255, 99, 132)',
+            'Volume': 'rgb(153, 102, 255)'
+        };
 
-        let chartInstance = null;
-        let currentChartData = {};
+        // --- GLOBAL TIME ZONES ---
+        const GLOBAL_TIME_ZONES = [
+            // Note: The time zone identifier for Local is 'undefined'
+            { name: "Local", zone: undefined },
+            { name: "UTC", zone: "UTC" },
+            { name: "London", zone: "Europe/London" },
+            { name: "New York", zone: "America/New_York" },
+            { name: "Tokyo", zone: "Asia/Tokyo" },
+            { name: "Moscow", zone: "Europe/Moscow" }
+        ];
+
+        // --- EVENT LISTENERS ---
+        document.addEventListener('DOMContentLoaded', () => {
+            if (productSelect) {
+                productSelect.addEventListener('change', handleProductChange);
+            }
+            if (dateSelect) {
+                dateSelect.addEventListener('change', handleDateChange);
+            }
+            initializeApp();
+        });
+
+
+        // --- HELPERS ---
+
+        const formatDate = (ms) => {
+            const date = new Date(parseInt(ms));
+            // Standard MM/DD/YYYY notation
+            return date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: 'UTC' });
+        };
+
+        const formatTime = (ms) => {
+            const date = new Date(parseInt(ms));
+            return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'UTC' });
+        };
 
         /**
-         * Converts a Unix millisecond timestamp to a human-readable date string.
-         * @param {string} timestamp The timestamp string (e.g., "1761523200000").
-         * @returns {string} The formatted date string.
+         * Fetches the time for each zone, sorts them chronologically, and updates the display.
          */
-        function formatTimestamp(timestamp) {
-            const date = new Date(Number(timestamp));
-            return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+        function updateClocks() {
+            const now = new Date();
+            
+            const options = {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                hour12: false
+            };
+
+            const timeData = GLOBAL_TIME_ZONES.map(tz => {
+                const tzOptions = { ...options, timeZone: tz.zone };
+                
+                // Get the timestamp in the target time zone
+                const locale = tz.zone === undefined ? undefined : 'en-US'; 
+                const dateTimeStr = now.toLocaleString(locale, tzOptions);
+
+                // Calculate the true timestamp relative to the current moment, which is the key for sorting
+                // Use the built-in time zone functionality to get the correct time representation
+                const dateInZone = new Date(now.toLocaleString('en-US', { timeZone: tz.zone || 'Europe/Paris' })); // Use a fallback for Local if needed
+
+                // NOTE: This sorting method is robust because we use the dateInZone object derived from the specific TZ offset.
+                return {
+                    name: tz.name,
+                    dateTimeStr: dateTimeStr,
+                    timestamp: dateInZone.getTime()
+                };
+            });
+
+            // Sort by timestamp (earliest time first, ascending order)
+            timeData.sort((a, b) => a.timestamp - b.timestamp);
+
+            let htmlContent = timeData.map(data => 
+                `<div><strong>${data.name}:</strong> ${data.dateTimeStr}</div>`
+            ).join('');
+
+            timeDisplay.innerHTML = htmlContent;
         }
+        
+        // --- PARSING LOGIC ---
+        
+        function structureFilesByProductAndDate(tickers) {
+            const map = new Map();
+            const fileRegex = /^(.*?)_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})$/; 
 
-        /**
-         * Renders the Chart.js chart for a selected data metric.
-         * @param {string} metric The metric to plot (e.g., 'Close', 'Open').
-         */
-        function renderChart(metric) {
-            const { labels, datasets } = currentChartData;
-            const dataToPlot = datasets[metric];
-            const canvas = document.getElementById('timeSeriesChart');
+            tickers.forEach(tickerObj => {
+                const ticker = tickerObj.ticker; 
+                const parts = ticker.toUpperCase().match(fileRegex); 
+                
+                if (parts) {
+                    const productName = parts[1]; 
+                    const date = parts[2];       
+                    
+                    if (!map.has(productName)) {
+                        map.set(productName, new Set()); 
+                    }
+                    map.get(productName).add(date);
+                }
+            });
 
-            if (!dataToPlot) return;
-
-            // Destroy the previous chart instance if it exists
-            if (chartInstance) {
-                chartInstance.destroy();
+            const finalResult = new Map();
+            for (const [product, datesSet] of map.entries()) {
+                finalResult.set(product, Array.from(datesSet).sort().reverse()); 
             }
 
-            const ctx = canvas.getContext('2d');
-            chartInstance = new Chart(ctx, {
+            return finalResult;
+        }
+        
+        // --- SELECTION HANDLERS ---
+        
+        function handleProductChange() {
+            const selectedProduct = productSelect.value;
+            dateSelect.disabled = true; 
+            
+            if (selectedProduct) {
+                renderDateSelect(selectedProduct);
+                dateSelect.disabled = false;
+                handleDateChange(); 
+            } else {
+                dateSelect.innerHTML = '<option value="">-- Select Product First --</option>';
+                tickersList.innerHTML = '<li>Select a product and date to view files.</li>';
+            }
+        }
+        
+        function handleDateChange() {
+            const selectedProduct = productSelect.value;
+            const selectedDate = dateSelect.value;
+
+            if (selectedProduct && selectedDate) {
+                filterAndRenderTickers(selectedProduct, selectedDate);
+            } else {
+                tickersList.innerHTML = '<li>Select a product and date to view files.</li>';
+            }
+        }
+
+        // --- UI RENDERING (SELECTIONS) ---
+        
+        function renderProductSelect(map) {
+            productSelect.innerHTML = '<option value="">-- Select Product --</option>';
+            Array.from(map.keys()).sort().forEach(productName => {
+                const option = document.createElement('option');
+                option.value = productName;
+                option.textContent = productName;
+                productSelect.appendChild(option);
+            });
+        }
+        
+        function renderDateSelect(productName) {
+            dateSelect.innerHTML = '';
+            const dates = productDateMap.get(productName) || [];
+            
+            if (dates.length > 0) {
+                dates.forEach(date => {
+                    const option = document.createElement('option');
+                    option.value = date;
+                    option.textContent = date;
+                    dateSelect.appendChild(option);
+                });
+            } else {
+                dateSelect.innerHTML = '<option value="">-- No Dates Found --</option>';
+            }
+        }
+
+        function filterAndRenderTickers(productName, date) {
+            const datePrefix = `${productName}_${date}`; 
+            
+            const filteredTickers = allTickers.filter(tickerObj => 
+                tickerObj.ticker.startsWith(datePrefix)
+            );
+            
+            filteredTickers.sort((a, b) => {
+                return a.ticker.localeCompare(b.ticker); 
+            });
+
+            renderTickerList(filteredTickers);
+        }
+
+        // --- BOOKMARK MANAGEMENT ---
+
+        function getBookmarks() {
+            try {
+                return JSON.parse(localStorage.getItem(BOOKMARK_KEY)) || {};
+            } catch (e) {
+                console.error("Could not parse bookmarks from localStorage:", e);
+                return {};
+            }
+        }
+
+        function setBookmarks(bookmarks) {
+            localStorage.setItem(BOOKMARK_KEY, JSON.stringify(bookmarks));
+        }
+
+        function toggleBookmark(ticker, downloadUrl) {
+            let bookmarks = getBookmarks();
+            const bookmarkIcon = document.querySelector(`li[data-ticker="${ticker}"] .bookmark-btn`);
+
+            if (bookmarks[ticker]) {
+                delete bookmarks[ticker];
+                if (bookmarkIcon) bookmarkIcon.classList.remove('bookmarked');
+                removeChart(ticker);
+            } else {
+                bookmarks[ticker] = { downloadUrl: downloadUrl || (currentTickerDataCache[ticker] ? currentTickerDataCache[ticker].downloadUrl : null) };
+                if (bookmarkIcon) bookmarkIcon.classList.add('bookmarked');
+                
+                if (currentTickerDataCache[ticker] && currentTickerDataCache[ticker].data) {
+                    generateChart(ticker, currentTickerDataCache[ticker].data);
+                } else {
+                    const tickerObj = allTickers.find(t => t.ticker === ticker);
+                    if (tickerObj) loadTickerData(ticker, tickerObj.downloadUrl, null);
+                }
+            }
+            setBookmarks(bookmarks);
+        }
+
+
+        // --- CHARTING FUNCTIONS ---
+        
+        function toggleDataTable(ticker) {
+            const container = document.getElementById(`dataTableContainer-${ticker}`);
+            const data = currentTickerDataCache[ticker]?.data;
+            const button = document.getElementById(`showDataBtn-${ticker}`);
+
+            if (!container || !data) return;
+
+            if (container.style.display === 'block') {
+                container.style.display = 'none';
+                button.textContent = 'Show Data';
+                return;
+            }
+
+            if (container.innerHTML === '') {
+                const timestamps = Object.keys(data).sort((a, b) => parseInt(a) - parseInt(b));
+                let tableHtml = '<table><thead><tr><th>Timestamp</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr></thead><tbody>';
+                
+                timestamps.forEach(ts => {
+                    const row = data[ts];
+                    tableHtml += `
+                        <tr>
+                            <td>${formatDate(ts)} ${formatTime(ts)}</td>
+                            <td>${row.Open ? row.Open.toFixed(4) : '-'}</td>
+                            <td>${row.High ? row.High.toFixed(4) : '-'}</td>
+                            <td>${row.Low ? row.Low.toFixed(4) : '-'}</td>
+                            <td>${row.Close ? row.Close.toFixed(4) : '-'}</td>
+                            <td>${row.Volume ? row.Volume.toFixed(0) : '-'}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHtml += '</tbody></table>';
+                container.innerHTML = tableHtml;
+            }
+            
+            container.style.display = 'block';
+            button.textContent = 'Hide Data';
+        }
+
+
+        function updateChartData(ticker, data, newColumn) {
+            const chart = activeCharts[ticker];
+            if (!chart) return;
+
+            const timestamps = Object.keys(data).sort((a, b) => parseInt(a) - parseInt(b));
+            const newData = timestamps.map(t => data[t][newColumn]);
+
+            chart.data.datasets[0].data = newData;
+            
+            const isVolume = newColumn === 'Volume';
+            
+            chart.data.datasets[0].label = `${newColumn} ${isVolume ? '' : 'Price'} (${isVolume ? 'Units' : '$'})`;
+            chart.data.datasets[0].borderColor = COLOR_MAP[newColumn] || COLOR_MAP[DEFAULT_COLUMN];
+
+            chart.options.scales.y.title.text = isVolume ? 'Volume (Units)' : 'Price ($)';
+            document.getElementById(`currentDataLabel-${ticker}`).textContent = newColumn;
+
+            chart.update();
+        }
+
+        function generateChart(ticker, data) {
+            const timestamps = Object.keys(data).sort((a, b) => parseInt(a) - parseInt(b));
+            
+            const labels = timestamps.map(formatDate);
+            const priceData = timestamps.map(t => data[t][DEFAULT_COLUMN]); 
+
+            if (activeCharts[ticker]) {
+                activeCharts[ticker].destroy();
+            }
+            
+            const existingContainer = document.getElementById(`chart-container-${ticker}`);
+            if (existingContainer) existingContainer.remove();
+
+            // 1. Build the data selection dropdown HTML
+            let selectOptions = AVAILABLE_DATA_COLUMNS.map(column => 
+                `<option value="${column}" ${column === DEFAULT_COLUMN ? 'selected' : ''}>${column}</option>`
+            ).join('');
+            
+            const selectHtml = `
+                <select id="dataSelect-${ticker}" class="data-select-dropdown">
+                    ${selectOptions}
+                </select>
+            `;
+
+            const container = document.createElement('div');
+            container.className = 'chart-container';
+            container.id = `chart-container-${ticker}`;
+            
+            const removeButtonHtml = `<button class="remove-bookmark-btn" data-ticker="${ticker}">Remove Bookmark</button>`;
+            const showDataButtonHtml = `<button class="show-data-btn" id="showDataBtn-${ticker}" data-ticker="${ticker}">Show Data</button>`;
+
+            container.innerHTML = `
+                <div class="chart-header">
+                    <h3>${ticker} - <span id="currentDataLabel-${ticker}">${DEFAULT_COLUMN} Price</span></h3>
+                    <div style="display:flex; gap: 10px; align-items: center;">
+                        ${selectHtml}
+                        ${showDataButtonHtml}
+                        ${removeButtonHtml}
+                    </div>
+                </div>
+                <canvas id="chart-${ticker}"></canvas>
+                <div id="dataTableContainer-${ticker}" class="data-table-container"></div>
+            `;
+            
+            bookmarkedChartsDiv.prepend(container);
+
+            // 2. Attach Event Listeners
+            document.getElementById(`dataSelect-${ticker}`).addEventListener('change', (e) => {
+                updateChartData(ticker, data, e.target.value); 
+            });
+
+            document.getElementById(`showDataBtn-${ticker}`).addEventListener('click', () => {
+                toggleDataTable(ticker); 
+            });
+
+            container.querySelector('.remove-bookmark-btn').addEventListener('click', (e) => {
+                toggleBookmark(e.target.dataset.ticker);
+            });
+
+            const ctx = document.getElementById(`chart-${ticker}`).getContext('2d'); 
+            
+            activeCharts[ticker] = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels: labels,
                     datasets: [{
-                        label: `${metric} Price Over Time`,
-                        data: dataToPlot,
-                        borderColor: '#3b82f6', // blue-500
-                        backgroundColor: 'rgba(59, 130, 246, 0.2)',
-                        tension: 0.2, // Smooth lines
-                        borderWidth: 2,
-                        pointRadius: 0 // Hide points for clean line graph
+                        label: `${DEFAULT_COLUMN} Price ($)`,
+                        data: priceData,
+                        borderColor: COLOR_MAP[DEFAULT_COLUMN],
+                        tension: 0.1,
+                        pointRadius: 0
                     }]
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        title: {
-                            display: true,
-                            text: `${metric} Price History`
-                        }
-                    },
+                    maintainAspectRatio: true,
                     scales: {
                         x: {
-                            title: {
-                                display: true,
-                                text: 'Date'
-                            },
-                            ticks: {
-                                maxTicksLimit: 10 // Prevent cluttering the axis
-                            }
+                            title: { display: true, text: 'Date' },
+                            ticks: { autoSkip: true, maxTicksLimit: 10 }
                         },
                         y: {
-                            title: {
-                                display: true,
-                                text: metric === 'Volume' ? 'Volume' : 'Value'
-                            }
+                            title: { display: true, text: 'Price ($)' }
                         }
                     }
                 }
             });
+            initialMessage.style.display = 'none';
+        }
+        
+        function removeChart(ticker) {
+            if (activeCharts[ticker]) {
+                activeCharts[ticker].destroy();
+                delete activeCharts[ticker];
+            }
+            const container = document.getElementById(`chart-container-${ticker}`);
+            if (container) {
+                container.remove();
+            }
+            if (bookmarkedChartsDiv.children.length === 0) {
+                initialMessage.style.display = 'block';
+            }
         }
 
-        /**
-         * Processes raw JSON data into Chart.js format and renders the chart/table.
-         * @param {Object} rawData The parsed JSON object.
-         * @param {string} fileName The name of the file being processed.
-         */
-        function processAndDisplayData(rawData, fileName) {
-            const keys = Object.keys(rawData);
-            if (keys.length === 0) {
-                dataOutputElement.innerHTML = '<p>The file is empty or does not contain valid data entries.</p>';
-                chartWrapper.classList.add('hidden');
+
+        // --- DATA FETCHING & UI RENDERING ---
+
+        async function initializeApp() {
+            // Start the clock updates immediately and set an interval
+            updateClocks();
+            setInterval(updateClocks, 1000); 
+
+            initialMessage.textContent = 'Loading configuration...';
+            try {
+                const configResponse = await fetch('config.json');
+                if (!configResponse.ok) {
+                    throw new Error(`Failed to load config.json (Status: ${configResponse.status}). Make sure the file exists.`);
+                }
+                config = await configResponse.json();
+                
+                const GITHUB_API_URL = `https://api.github.com/repos/${config.GITHUB_OWNER}/${config.GITHUB_REPO}/contents/${config.DATA_PATH}`;
+                
+                initialMessage.textContent = 'Fetching ticker data...';
+                await fetchDirectoryContents(GITHUB_API_URL); 
+
+            } catch (error) {
+                console.error('Error in initializeApp:', error);
+                tickersList.innerHTML = `<li>FATAL ERROR: Could not load configuration or data. Error: ${error.message}</li>`;
+            }
+        }
+
+        async function fetchDirectoryContents(GITHUB_API_URL) {
+            try {
+                const response = await fetch(GITHUB_API_URL); 
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const contents = await response.json();
+
+                const files = contents.filter(item => item.type === 'file');
+                
+                allTickers = files.map(file => ({
+                    ticker: file.name.replace(/\.[^/.]+$/, "").toUpperCase(),
+                    downloadUrl: file.download_url
+                }));
+                
+                // 1. Structure the data for the dropdowns
+                productDateMap = structureFilesByProductAndDate(allTickers);
+                renderProductSelect(productDateMap);
+
+                // 2. Default Bookmark Logic
+                const currentBookmarks = getBookmarks();
+                if (Object.keys(currentBookmarks).length === 0 && config.DEFAULT_BOOKMARK_TICKER_NAME) {
+                    
+                    const defaultTickersConfig = Array.isArray(config.DEFAULT_BOOKMARK_TICKER_NAME) 
+                        ? config.DEFAULT_BOOKMARK_TICKER_NAME 
+                        : [config.DEFAULT_BOOKMARK_TICKER_NAME];
+
+                    defaultTickersConfig.forEach(defaultName => {
+                        const capitalizedName = defaultName.toUpperCase();
+                        
+                        const defaultTickers = allTickers.filter(t => t.ticker.startsWith(capitalizedName));
+                        
+                        if (defaultTickers.length > 0) {
+                            defaultTickers.sort((a, b) => b.ticker.localeCompare(a.ticker));
+                            const latestTicker = defaultTickers[0]; 
+
+                            currentBookmarks[latestTicker.ticker] = { downloadUrl: latestTicker.downloadUrl };
+                            console.log(`Default bookmark set for: ${latestTicker.ticker}`);
+                        }
+                    });
+                    
+                    if (Object.keys(currentBookmarks).length > 0) {
+                        setBookmarks(currentBookmarks);
+                    }
+                }
+                
+                // 3. Load Bookmarked Charts
+                loadBookmarkedCharts();
+
+                // 4. Set initial selection
+                if (productSelect.options.length > 1) {
+                    productSelect.value = productSelect.options[1].value;
+                    handleProductChange();
+                }
+
+            } catch (error) {
+                console.error('Error fetching directory contents:', error);
+                tickersList.innerHTML = `<li>FATAL ERROR: Could not load tickers. Error: ${error.message}</li>`;
+            }
+        }
+
+        function renderTickerList(tickers) {
+            tickersList.innerHTML = '';
+
+            const bookmarks = getBookmarks();
+
+            tickers.forEach(tickerObj => {
+                const isBookmarked = !!bookmarks[tickerObj.ticker];
+                const listItem = document.createElement('li');
+                listItem.textContent = tickerObj.ticker;
+                listItem.setAttribute('data-ticker', tickerObj.ticker);
+                
+                const bookmarkBtn = document.createElement('button');
+                bookmarkBtn.className = `bookmark-btn ${isBookmarked ? 'bookmarked' : ''}`;
+                bookmarkBtn.innerHTML = '★'; 
+                bookmarkBtn.title = isBookmarked ? 'Remove Bookmark' : 'Add Bookmark';
+                
+                bookmarkBtn.addEventListener('click', (e) => {
+                    e.stopPropagation(); 
+                    toggleBookmark(tickerObj.ticker, tickerObj.downloadUrl);
+                });
+
+                listItem.appendChild(bookmarkBtn);
+                
+                listItem.addEventListener('click', () => {
+                    loadTickerData(tickerObj.ticker, tickerObj.downloadUrl, listItem);
+                });
+                
+                tickersList.appendChild(listItem);
+            });
+            
+            if (tickers.length === 0) {
+                 tickersList.innerHTML = '<li>No matching files found for this date/product.</li>';
+            }
+        }
+        
+        async function loadTickerData(ticker, downloadUrl, selectedLi) {
+            document.querySelectorAll('#tickersList li').forEach(li => li.classList.remove('highlighted'));
+            if (selectedLi) selectedLi.classList.add('highlighted');
+            
+            if (currentTickerDataCache[ticker] && currentTickerDataCache[ticker].data) {
+                generateChart(ticker, currentTickerDataCache[ticker].data);
+                document.getElementById(`chart-container-${ticker}`).scrollIntoView({ behavior: 'smooth' });
                 return;
             }
 
-            // --- 1. Data Processing for Chart and Table ---
-            const firstEntry = rawData[keys[0]];
-            const dataProperties = Object.keys(firstEntry).filter(p => p !== 'Dividends' && p !== 'Stock Splits'); // Filter out zeroed columns
-            
-            const chartLabels = [];
-            const chartDatasets = {};
-
-            // Initialize dataset arrays
-            dataProperties.forEach(prop => {
-                chartDatasets[prop] = [];
-            });
-
-            // Populate labels and datasets
-            keys.forEach(timestamp => {
-                chartLabels.push(formatTimestamp(timestamp)); // Date label
-                const entry = rawData[timestamp];
-                dataProperties.forEach(prop => {
-                    chartDatasets[prop].push(entry[prop]);
-                });
-            });
-
-            currentChartData = {
-                labels: chartLabels,
-                datasets: chartDatasets
-            };
-
-            // --- 2. Render Chart Selector ---
-            dataSelector.innerHTML = ''; // Clear existing buttons
-            dataProperties.forEach((metric, index) => {
-                const radioId = `metric-${metric.toLowerCase().replace(' ', '-')}`;
-                const isDefaultChecked = metric === 'Close'; // Default to plotting Close price
-
-                const input = document.createElement('input');
-                input.type = 'radio';
-                input.name = 'chartMetric';
-                input.id = radioId;
-                input.value = metric;
-                input.checked = isDefaultChecked;
-                input.classList.add('hidden'); // Hide default radio button
-                
-                input.onchange = () => renderChart(metric);
-
-                const label = document.createElement('label');
-                label.htmlFor = radioId;
-                label.classList.add('radio-label', 'cursor-pointer');
-                label.innerHTML = `<span class="px-4 py-2 text-sm border border-gray-300 rounded-full transition-colors duration-150">${metric}</span>`;
-                
-                dataSelector.appendChild(label);
-            });
-
-            // --- 3. Render Initial Chart (Default: Close) ---
-            chartWrapper.classList.remove('hidden');
-            renderChart('Close');
-
-            // --- 4. Render Table ---
-            createTable(rawData, fileName, ['Date', ...dataProperties]);
-        }
-
-
-        /**
-         * Builds an HTML table from the JSON content object.
-         * @param {Object} data The parsed JSON object.
-         * @param {string} fileName The name of the file being processed.
-         * @param {Array<string>} headers The column headers for the table.
-         */
-        function createTable(data, fileName, headers) {
-            // Clear previous content
-            dataOutputElement.innerHTML = '';
-            currentFileDisplay.textContent = `Displaying data for: ${fileName}`;
-
-            let tableHTML = '<table id="dataTable" class="min-w-full divide-y divide-gray-200 border border-gray-200">';
-            
-            // Table Header
-            tableHTML += '<thead class="bg-gray-50"><tr>';
-            headers.forEach(header => {
-                tableHTML += `<th scope="col" class="px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">${header}</th>`;
-            });
-            tableHTML += '</tr></thead>';
-
-            // Table Body
-            tableHTML += '<tbody class="bg-white divide-y divide-gray-200">';
-
-            const timestamps = Object.keys(data);
-            timestamps.forEach(timestamp => {
-                const entry = data[timestamp];
-                const dateString = formatTimestamp(timestamp);
-                
-                tableHTML += '<tr>';
-                tableHTML += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${dateString}</td>`; 
-                
-                headers.slice(1).forEach(prop => {
-                    const value = entry[prop] !== undefined ? entry[prop].toLocaleString() : 'N/A';
-                    tableHTML += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${value}</td>`; 
-                });
-                
-                tableHTML += '</tr>';
-            });
-
-            tableHTML += '</tbody></table>';
-            dataOutputElement.innerHTML = tableHTML;
-        }
-
-
-        /**
-         * Fetches and processes the content of a specific file.
-         * @param {string} rawUrl The raw file URL from GitHub.
-         * @param {string} fileName The name of the file.
-         */
-        async function readFileAndCreateTable(rawUrl, fileName) {
-            dataOutputElement.innerHTML = '<p class="text-gray-500">Loading file content...</p>';
-            currentFileDisplay.textContent = `Loading data for: ${fileName}`;
+            if (initialMessage) {
+                initialMessage.style.display = 'block';
+                initialMessage.textContent = `Loading data for **${ticker}**...`;
+            }
 
             try {
-                const response = await fetch(rawUrl);
-
+                const response = await fetch(downloadUrl);
                 if (!response.ok) {
-                    throw new Error(`Failed to fetch raw file: ${response.status} ${response.statusText}`);
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-
-                const rawContent = await response.text();
+                const data = await response.json();
                 
-                // Parse the JSON string into a JavaScript object
-                const data = JSON.parse(rawContent);
-
-                processAndDisplayData(data, fileName);
+                currentTickerDataCache[ticker] = { data, downloadUrl };
+                
+                generateChart(ticker, data);
+                
+                document.getElementById(`chart-container-${ticker}`).scrollIntoView({ behavior: 'smooth' });
 
             } catch (error) {
-                dataOutputElement.innerHTML = `<p class="text-red-500">Error processing file. Ensure it is valid JSON in the expected format. Error: ${error.message}</p>`;
-                console.error(`Error processing ${fileName}:`, error);
-                chartWrapper.classList.add('hidden');
+                console.error(`Error fetching data for ${ticker}:`, error);
+                
+                if (initialMessage) {
+                    initialMessage.style.display = 'block';
+                    initialMessage.innerHTML = `**Error** loading data for **${ticker}**: ${error.message}`;
+                }
             }
         }
 
-        /**
-         * Fetches the initial directory listing from GitHub.
-         */
-        async function listDirectoryContents() {
-            try {
-                const response = await fetch(baseApiUrl);
+        function loadBookmarkedCharts() {
+            const bookmarks = getBookmarks();
+            const tickersToLoad = Object.keys(bookmarks);
 
-                if (!response.ok) {
-                    throw new Error(`GitHub API Error: ${response.status} ${response.statusText}`);
-                }
+            if (tickersToLoad.length === 0) {
+                initialMessage.textContent = 'No products are currently bookmarked. Select a ticker from the list to view its chart and bookmark it.';
+                return;
+            }
+            
+            initialMessage.textContent = `Loading ${tickersToLoad.length} bookmarked product(s)...`;
 
-                const contents = await response.json();
-                loadingElement.classList.add('hidden');
-
-                if (Array.isArray(contents) && contents.length > 0) {
-                    // Filter for files that look like data files (ending in .json)
-                    const files = contents
-                        .filter(item => item.type === 'file' && item.name.toLowerCase().endsWith('.json'))
-                        .sort((a, b) => a.name.localeCompare(b.name));
-                    
-                    if (files.length === 0) {
-                        fileListElement.innerHTML = '<li class="text-gray-500">No JSON files found in this directory.</li>';
-                        return;
-                    }
-
-                    files.forEach(item => {
-                        const listItem = document.createElement('li');
-                        const button = document.createElement('button');
-                        
-                        // Apply Tailwind classes for button styling
-                        button.textContent = item.name;
-                        button.classList.add('text-blue-600', 'hover:text-blue-800', 'font-medium', 'transition-colors', 'duration-150', 'text-left', 'w-full', 'p-1');
-                        
-                        // Set the click handler
-                        button.onclick = () => readFileAndCreateTable(item.download_url, item.name);
-
-                        listItem.appendChild(button);
-                        fileListElement.appendChild(listItem);
+            tickersToLoad.forEach(ticker => {
+                const bookmarkEntry = bookmarks[ticker];
+                const downloadUrl = bookmarkEntry.downloadUrl;
+                
+                fetch(downloadUrl)
+                    .then(response => {
+                        if (!response.ok) throw new Error(`Status ${response.status}`);
+                        return response.json();
+                    })
+                    .then(data => {
+                        currentTickerDataCache[ticker] = { data, downloadUrl };
+                        generateChart(ticker, data);
+                    })
+                    .catch(error => {
+                        console.error(`Error loading bookmarked data for ${ticker}:`, error);
+                        const errorDiv = document.createElement('div');
+                        errorDiv.innerHTML = `<p style="color:red;">Failed to load data for bookmarked ticker **${ticker}**: ${error.message}</p>`;
+                        bookmarkedChartsDiv.appendChild(errorDiv);
                     });
-                } else {
-                    fileListElement.innerHTML = '<li class="text-gray-500">Directory is empty or path is invalid.</li>';
-                }
-
-            } catch (error) {
-                loadingElement.classList.add('hidden');
-                errorElement.textContent = `Failed to load contents. Error: ${error.message}`;
-                errorElement.classList.remove('hidden');
-                console.error('Error fetching GitHub contents:', error);
-            }
+            });
+            
+            initialMessage.style.display = 'none'; 
         }
 
-        listDirectoryContents();
     </script>
-
 </body>
 </html>

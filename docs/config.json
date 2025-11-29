@@ -1,0 +1,6 @@
+{
+    "GITHUB_OWNER": "yblebon",
+    "GITHUB_REPO": "datasources",
+    "DATA_PATH": "tickers",
+    "DEFAULT_BOOKMARK_TICKER_NAME": ["GOLD-F", "EUR_MGA-X"]
+}
