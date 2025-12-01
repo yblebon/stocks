@@ -1,6 +1,8 @@
 {
-    "GITHUB_OWNER": "yblebon",
-    "GITHUB_REPO": "datasources",
-    "DATA_PATH": "tickers",
-    "DEFAULT_BOOKMARK_TICKER_NAME": ["GOLD-F", "CRUDE_OIL-F", "XRP_USD-X", "DOT_USD", "HNT_USD", "EUR_MGA-X"]
+  "githubRepo": "yblebon/store",
+  "basePath": "market",
+  "initialBookmarks": [
+    "yahoo__crude_oil-f__tickers__20251201.json.gz",
+    "yahoo__eur_mga-x__tickers__20251201.json.gz"
+  ]
 }
