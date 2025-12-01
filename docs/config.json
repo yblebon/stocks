@@ -2,5 +2,5 @@
     "GITHUB_OWNER": "yblebon",
     "GITHUB_REPO": "datasources",
     "DATA_PATH": "tickers",
-    "DEFAULT_BOOKMARK_TICKER_NAME": ["GOLD-F", "CRUDE_OIL-F", "XRP_USD-X", "EUR_MGA-X"]
+    "DEFAULT_BOOKMARK_TICKER_NAME": ["GOLD-F", "CRUDE_OIL-F", "XRP_USD-X", "DOT_USD", "HNT_USD", "EUR_MGA-X"]
 }
