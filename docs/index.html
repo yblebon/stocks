@@ -29,7 +29,7 @@
             line-height: 1.2;
         }
 
-        /* --- NEW: Header Row Container for Title and Clocks --- */
+        /* --- Header Row Container for Title and Clocks --- */
         #main-header-row {
             border-bottom: 2px solid #e1e1e1;
             margin-bottom: 20px;
@@ -86,9 +86,30 @@
             margin-bottom: 0; 
         }
         /* Style for the inline button */
-        #tag-load-button {
+        .inline-button {
             height: 50px; 
             margin-top: 0;
+        }
+        
+        /* --- Applied Filters Display --- */
+        #applied-filters-display {
+            padding: 5px 0 10px 0;
+            border-top: 1px solid #eee;
+            margin-top: 15px;
+            min-height: 40px; /* Ensure space even when empty */
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .applied-tag {
+            background-color: #007bff;
+            color: white;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: bold;
+            display: inline-block;
         }
         
         /* Content Title (Labels) Styling */
@@ -191,19 +212,29 @@
 
         <div id="tag-search-container">
             <label for="tag-input-field">
-                Search DataFrames by Tag (e.g., **Source:ABC, Date:2023-01-01**):
+                Add Filter Tag (e.g., **Source:ABC**, **20251202** (YYYYMMDD), or just **ABC**) - **Press ENTER to apply filter**:
             </label>
-            <div class="grid-x grid-margin-x">
+            <div class="grid-x grid-margin-x align-middle">
                 <div class="auto cell">
                     <input type="text" 
                         id="tag-input-field" 
-                        placeholder="Enter tags separated by commas (e.g., Source:EUREX, Instrument:DEX_EURUSD, Category:FX)">
+                        placeholder="Enter tags separated by commas, then press ENTER.">
                 </div>
+                
                 <div class="shrink cell">
-                    <button id="tag-load-button" onclick="loadFilesByTagInput()" class="button alert" style="width: 100%;">
+                    <button id="tag-load-button" onclick="loadFilesByTagInput()" class="button alert inline-button">
                         Load 📊
                     </button>
                 </div>
+                <div class="shrink cell">
+                    <button id="tag-clear-button" onclick="clearFiltersAndReload()" class="button secondary inline-button">
+                        Clear ❌
+                    </button>
+                </div>
+            </div>
+            
+            <div id="applied-filters-display">
+                <span class="note">No filters applied.</span>
             </div>
         </div>
         
@@ -214,7 +245,7 @@
                 <div id="filter-card" class="callout">
                     
                     <h5 class="text-center">Filter Information</h5>
-                    <p class="note">Search criteria is determined by the tag input field above.</p>
+                    <p class="note">Criteria stack up using **AND** logic in the search bar above.</p>
                 </div>
             </div>
 
@@ -231,16 +262,20 @@
     <script>
         // Store config globally to access initialBookmarks
         let appConfig = {}; 
-
+        
+        // --- Global array to store applied filter strings ---
+        let appliedFilterStrings = []; 
+        
         // Mock objects for removed HTML elements
         const contentsList = { innerHTML: '' }; 
         const currentPathDisplay = { textContent: '', classList: { remove: () => {} } }; 
 
-        // contentTitle is now a DIV, not an H2
+        // DOM elements
         const fileContentDisplay = document.getElementById('file-content-display');
         const contentTitle = document.getElementById('content-title');
         const tagInputField = document.getElementById('tag-input-field');
-        
+        const appliedFiltersDisplay = document.getElementById('applied-filters-display');
+
         let allFileMetadata = []; 
         let currentlyRenderedFiles = [];
         const rawDataStore = new Map(); 
@@ -357,20 +392,44 @@
                 ${formatLabel(uniqueValues.date, 'Dates', 'warning')}
             `;
         }
+        
+        // --- Function to render the applied filters ---
+        function renderAppliedFilters() {
+            if (appliedFilterStrings.length === 0) {
+                appliedFiltersDisplay.innerHTML = '<span class="note">No filters applied.</span>';
+                return;
+            }
+            
+            let html = '<span class="note" style="margin-right: 10px;">Applied Filters (AND):</span>';
+            appliedFilterStrings.forEach(filterStr => {
+                html += `<span class="applied-tag">${filterStr}</span>`;
+            });
+            appliedFiltersDisplay.innerHTML = html;
+        }
 
-        // --- Tag Parsing Function ---
+        // --- Tag Parsing Functions (MODIFIED) ---
 
+        /**
+         * Parses a single tag string into structured criteria, separating explicit Key:Value
+         * tags from literal search terms, and handling implicit YYYYMMDD dates.
+         * @param {string} tagString - e.g., "Source:EUREX, 20251202, oil"
+         * @returns {object} - { criteria: { source: ['EUREX'], date: ['20251202'], ... }, literalTerms: ['oil'] }
+         */
         function parseTagsFromInput(tagString) {
             const criteria = { source: [], category: [], instrument: [], date: [] };
-            if (!tagString) return criteria;
+            const literalTerms = [];
+            if (!tagString) return { criteria, literalTerms };
+
+            // Regex to find a YYYYMMDD format (8 digits)
+            const dateRegex = /^(\d{4})(\d{2})(\d{2})$/;
 
             // Split by comma, then trim and filter empty entries
             const rawTags = tagString.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
 
             rawTags.forEach(rawTag => {
-                // Split by the first colon to separate key and value
                 const parts = rawTag.split(':');
                 if (parts.length === 2) {
+                    // 1. Explicit Key:Value tag
                     const rawKey = parts[0].trim().toUpperCase();
                     const value = parts[1].trim();
                     const internalKey = TAG_FIELD_MAP[rawKey];
@@ -378,41 +437,142 @@
                     if (internalKey && value) {
                         criteria[internalKey].push(value);
                     }
+                } else {
+                    // 2. Literal search term (Check for YYYYMMDD)
+                    const match = rawTag.match(dateRegex);
+                    
+                    if (match) {
+                        // Found YYYYMMDD date. Use the raw input string directly for comparison 
+                        // against the file metadata, which is likely also YYYYMMDD.
+                        criteria.date.push(rawTag);
+                    } else {
+                        // Regular literal search term
+                        literalTerms.push(rawTag.toLowerCase());
+                    }
                 }
             });
             
-            return criteria;
+            return { criteria, literalTerms };
         }
-
-        // --- Core Load Logic (MODIFIED to use Tag Input) ---
-
-        async function loadFilesByTagInput() {
-            const tagString = tagInputField.value;
-            const criteria = parseTagsFromInput(tagString);
+        
+        /**
+         * Parses all applied filter strings into a single, aggregated criteria object
+         * and a list of all literal terms.
+         * @returns {object} - { allCriteria: [ { source: [...] }, ... ], allLiteralTerms: [...] }
+         */
+        function parseAllAppliedFilters() {
+            const allCriteria = [];
+            const allLiteralTerms = [];
             
-            // Filter all metadata based on the parsed tags
-            const filteredList = allFileMetadata.filter(item => {
-                if (item.type === 'dir' || !item.source) return false; 
+            appliedFilterStrings.forEach(filterString => {
+                const parsed = parseTagsFromInput(filterString);
                 
-                const matchSource = criteria.source.length === 0 || criteria.source.includes(item.source);
-                const matchCategory = criteria.category.length === 0 || criteria.category.includes(item.category);
-                const matchInstrument = criteria.instrument.length === 0 || criteria.instrument.includes(item.instrument);
-                const matchDate = criteria.date.length === 0 || criteria.date.includes(item.date);
-
-                return matchSource && matchCategory && matchInstrument && matchDate;
+                // Aggregate explicit criteria
+                if (Object.values(parsed.criteria).some(arr => arr.length > 0)) {
+                    allCriteria.push(parsed.criteria);
+                }
+                
+                // Aggregate literal terms
+                allLiteralTerms.push(...parsed.literalTerms);
             });
             
-            currentlyRenderedFiles = filteredList; 
+            // Remove duplicates from literal terms
+            const uniqueLiteralTerms = [...new Set(allLiteralTerms)];
+            
+            return { allCriteria, allLiteralTerms: uniqueLiteralTerms };
+        }
+
+        // --- Core Load Logic (Unchanged) ---
+
+        async function loadFilesByTagInput() {
+            const { allCriteria: allCriteriaSets, allLiteralTerms } = parseAllAppliedFilters();
+            
+            let filteredList = allFileMetadata;
+            
+            if (allCriteriaSets.length === 0 && allLiteralTerms.length === 0) {
+                // If no filters, show all files
+                currentlyRenderedFiles = allFileMetadata;
+            } else {
+                 filteredList = allFileMetadata.filter(item => {
+                    if (item.type === 'dir' || !item.source) return false; 
+                    
+                    // --- 1. Check Explicit Key:Value Criteria (AND logic across all sets) ---
+                    const explicitMatch = allCriteriaSets.every(criteria => {
+                        
+                        // Check if the item matches any value provided for each specific field in this criteria set
+                        // (OR logic within the field's values)
+                        
+                        // NOTE: This includes the implicitly added date criteria from YYYYMMDD input
+                        const matchSource = criteria.source.length === 0 || criteria.source.includes(item.source);
+                        const matchCategory = criteria.category.length === 0 || criteria.category.includes(item.category);
+                        const matchInstrument = criteria.instrument.length === 0 || criteria.instrument.includes(item.instrument);
+                        const matchDate = criteria.date.length === 0 || criteria.date.includes(item.date);
+                        
+                        // For a criteria set to pass, it must match all specified fields (AND logic)
+                        return matchSource && matchCategory && matchInstrument && matchDate;
+                    });
+                    
+                    // --- 2. Check Literal Terms (AND logic across all literal terms) ---
+                    const literalMatch = allLiteralTerms.every(term => {
+                        const lowerTerm = term.toLowerCase();
+                        
+                        // The file must contain the literal term in at least one metadata field (OR logic)
+                        const sourceMatch = item.source && item.source.toLowerCase().includes(lowerTerm);
+                        const categoryMatch = item.category && item.category.toLowerCase().includes(lowerTerm);
+                        const instrumentMatch = item.instrument && item.instrument.toLowerCase().includes(lowerTerm);
+                        
+                        // NOTE: We don't search the 'date' field for literal terms as that is now handled 
+                        // by the explicit check above, preventing partial date matches.
+                        
+                        return sourceMatch || categoryMatch || instrumentMatch;
+                    });
+
+                    // --- Final Result: Must match ALL Explicit AND ALL Literal terms ---
+                    return explicitMatch && literalMatch;
+                });
+                currentlyRenderedFiles = filteredList;
+            }
+
             
             // Now, execute the load process
             await loadAllFilteredDataFrames();
         }
 
-        // --- Batch Loading Function (Relies on currentlyRenderedFiles set by loadFilesByTagInput) ---
+        // --- Keypress Handler for Enter Key (Unchanged) ---
+        tagInputField.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault(); 
+                const newFilter = tagInputField.value.trim();
+                if (newFilter) {
+                    // 1. Add new filter string
+                    appliedFilterStrings.push(newFilter);
+                    
+                    // 2. Clear input field
+                    tagInputField.value = '';
+                    
+                    // 3. Update visual feedback
+                    renderAppliedFilters();
+                    
+                    // 4. Run the load
+                    loadFilesByTagInput();
+                }
+            }
+        });
+        
+        // --- Clear Filters and Reload Function (Unchanged) ---
+        function clearFiltersAndReload() {
+            appliedFilterStrings = [];
+            renderAppliedFilters();
+            tagInputField.value = '';
+            // Reload all files (as loadFilesByTagInput will see an empty filter list)
+            loadFilesByTagInput(); 
+        }
+
+        // --- Batch Loading Function (Relies on currentlyRenderedFiles) ---
         async function loadAllFilteredDataFrames() {
             if (currentlyRenderedFiles.length === 0) {
                 contentTitle.innerHTML = '<h3>No Files Selected</h3>'; 
-                fileContentDisplay.innerHTML = '<div class="callout alert">No files matched the current tag criteria. Try different tags.</div>';
+                fileContentDisplay.innerHTML = '<div class="callout alert">No files matched the current tag criteria. Try different tags or clear filters.</div>';
                 return;
             }
 
@@ -454,7 +614,7 @@
             }
         }
         
-        // --- Bookmark Functions (Uses the loadAllFilteredDataFrames function) ---
+        // --- Bookmark Functions (Unchanged) ---
 
         function getBookmarkedFiles() {
             if (appConfig.initialBookmarks && Array.isArray(appConfig.initialBookmarks) && appConfig.initialBookmarks.length > 0) {
@@ -839,7 +999,7 @@
 
         async function loadDataFrameChart(apiUrl, fileName) {
             contentTitle.innerHTML = `<h3>Loading Chart: ${fileName}... (Individual file loading disabled)</h3>`;
-            fileContentDisplay.innerHTML = '<div class="callout alert">Individual file loading is currently disabled. Use the tag input to load charts.</div>';
+            fileContentDisplay.innerHTML = '<div class="callout alert">Individual file content display is currently disabled. Use the tag input to load charts.</div>';
         }
 
         // --- Remaining Utility Functions (Simplified/Removed) ---
@@ -861,7 +1021,7 @@
                     source: parts[0],
                     instrument: parts[1],
                     category: parts[2],
-                    date: parts[3],
+                    date: parts[3], // This value must match the filter criteria exactly (e.g., "20251202")
                     match: true,
                 };
             }
