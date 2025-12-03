@@ -4,12 +4,12 @@
   "initialBookmarks": [
     "yahoo__crudeoil_usd-f__tickers__latest.json.gz",
     "yahoo__rice_usd-f__tickers__latest.json.gz",
-    "yahoo__eur_usd-x__tickers__latest.json.gz",
-    "yahoo__eur_mga-x__tickers__latest.json.gz",
+    "yahoo__eur_usd-s__tickers__latest.json.gz",
+    "yahoo__eur_mga-s__tickers__latest.json.gz",
     "yahoo__lac_usd__tickers__latest.json.gz",
     "yahoo__nvidia_usd__tickers__latest.json.gz",
     "yahoo__xrp_usd__tickers__latest.json.gz",
     "yahoo__hnt_usd__tickers__latest.json.gz",
-    "yahoo__dot_usd__tickers__latest.json.gz",
+    "yahoo__dot_usd__tickers__latest.json.gz"
   ]
 }
