@@ -2,7 +2,14 @@
   "githubRepo": "yblebon/store",
   "basePath": "market",
   "initialBookmarks": [
-    "yahoo__crude_oil-f__tickers__20251201.json.gz",
-    "yahoo__eur_mga-x__tickers__20251201.json.gz"
+    "yahoo__crudeoil_usd-f__tickers__latest.json.gz",
+    "yahoo__rice_usd-f__tickers__latest.json.gz",
+    "yahoo__eur_usd-x__tickers__latest.json.gz",
+    "yahoo__eur_mga-x__tickers__latest.json.gz",
+    "yahoo__lac_usd__tickers__latest.json.gz",
+    "yahoo__nvidia_usd__tickers__latest.json.gz",
+    "yahoo__xrp_usd__tickers__latest.json.gz",
+    "yahoo__hnt_usd__tickers__latest.json.gz",
+    "yahoo__dot_usd__tickers__latest.json.gz",
   ]
 }
